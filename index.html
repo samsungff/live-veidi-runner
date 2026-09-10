@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Live Player</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+
+<style>
+*{box-sizing:border-box}
+html,body{
+  margin:0;width:100%;height:100%;
+  background:#090909;color:#fff;
+  font-family:Arial,sans-serif;overflow:hidden
+}
+.wrap{
+  width:100%;height:100%;
+  display:flex;align-items:center;justify-content:center
+}
+.player{
+  position:relative;width:100%;height:100%;
+  background:#000
+}
+.video{
+  width:100%;height:100%;
+  object-fit:contain;background:#000
+}
+.top{
+  position:absolute;top:0;left:0;right:0;
+  padding:14px 16px;
+  display:flex;justify-content:space-between;align-items:center;
+  background:linear-gradient(#000b,transparent);
+  opacity:0;transition:.2s
+}
+.player:hover .top,.player.paused .top{opacity:1}
+
+.back{
+  border:0;background:#0009;color:white;
+  border-radius:8px;padding:8px 12px;
+  font-size:20px;cursor:pointer
+}
+.live{
+  font-size:12px;font-weight:bold;
+  background:#e21d2f;padding:5px 8px;border-radius:5px
+}
+.controls{
+  position:absolute;left:0;right:0;bottom:0;
+  padding:14px 16px 16px;
+  background:linear-gradient(transparent,#000d);
+  display:flex;align-items:center;gap:10px;
+  opacity:0;transition:.2s
+}
+.player:hover .controls,.player.paused .controls{opacity:1}
+
+button{
+  border:0;background:#0009;color:#fff;
+  border-radius:7px;padding:8px 10px;
+  cursor:pointer;font-size:15px
+}
+.time{
+  font-size:12px;color:#ccc;margin-left:auto
+}
+.settings{
+  position:absolute;right:16px;bottom:62px;
+  background:#181818;border:1px solid #333;
+  border-radius:9px;padding:8px;
+  display:none;min-width:160px
+}
+.settings.show{display:block}
+.settings label{
+  display:block;padding:7px;font-size:13px
+}
+.settings select{
+  width:100%;margin-top:5px;
+  background:#222;color:#fff;
+  border:1px solid #444;padding:7px;
+  border-radius:6px
+}
+.status{
+  position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);
+  font-size:14px;color:#aaa;
+  background:#0009;padding:9px 12px;
+  border-radius:8px;display:none
+}
+.player.loading .status{display:block}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+<div class="player loading" id="player">
+
+<video class="video" id="video" controls playsinline></video>
+
+<div class="top">
+  <button class="back" onclick="history.back()" title="Back">←</button>
+  <span class="live">● LIVE</span>
+</div>
+
+<div class="status" id="status">Connecting…</div>
+
+<div class="settings" id="settings">
+<label>
+Playback quality
+<select id="quality">
+<option value="-1">Auto</option>
+</select>
+</label>
+</div>
+
+<div class="controls">
+<button id="play">▶</button>
+<button id="mute">🔊</button>
+<button id="settingsBtn">⚙</button>
+<button id="full">⛶</button>
+<span class="time" id="state">LIVE</span>
+</div>
+
+</div>
+</div>
+
+<script>
+const URL='https://vs.classplusapp.com/hls/6aa24beaf26032ed77966c14/index.m3u8';
+
+const v=document.getElementById('video');
+const p=document.getElementById('player');
+const s=document.getElementById('status');
+const q=document.getElementById('quality');
+
+let h;
+
+function ready(){
+  p.classList.remove('loading');
+  s.style.display='none';
+  v.play().catch(()=>{});
+}
+
+if(Hls.isSupported()){
+
+  h=new Hls({
+    liveSyncDurationCount:3,
+    maxBufferLength:10
+  });
+
+  h.loadSource(URL);
+  h.attachMedia(v);
+
+  h.on(Hls.Events.MANIFEST_PARSED,()=>{
+    h.levels.forEach((x,i)=>{
+      let o=document.createElement('option');
+      o.value=i;
+      o.textContent=x.height ? x.height+'p' : 'Level '+i;
+      q.appendChild(o);
+    });
+
+    ready();
+  });
+
+  h.on(Hls.Events.ERROR,(_,d)=>{
+    if(d.fatal){
+      s.textContent='Stream error — reconnecting…';
+      p.classList.add('loading');
+
+      setTimeout(()=>{
+        h.startLoad();
+      },1500);
+    }
+  });
+
+  q.onchange=()=>{
+    h.currentLevel=+q.value;
+  };
+
+}else if(v.canPlayType('application/vnd.apple.mpegurl')){
+
+  v.src=URL;
+  v.addEventListener('loadedmetadata',ready);
+
+}else{
+
+  s.textContent='HLS is not supported in this browser';
+
+}
+
+play.onclick=()=>{
+  v.paused ? v.play() : v.pause();
+};
+
+mute.onclick=()=>{
+  v.muted=!v.muted;
+};
+
+full.onclick=()=>{
+  document.fullscreenElement
+    ? document.exitFullscreen()
+    : p.requestFullscreen();
+};
+
+settingsBtn.onclick=()=>{
+  settings.classList.toggle('show');
+};
+
+v.onplay=()=>{
+  play.textContent='❚❚';
+  p.classList.remove('paused');
+};
+
+v.onpause=()=>{
+  play.textContent='▶';
+  p.classList.add('paused');
+};
+
+v.onvolumechange=()=>{
+  mute.textContent=v.muted?'🔇':'🔊';
+};
+</script>
+
+</body>
+</html>
